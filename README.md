@@ -27,8 +27,7 @@ silicone-tape currently checks pushed data for the following conditions:
 
 If you're using GitHub Enterprise, pop this up on any internal host that can be reached by a GHE webhook and send email. 
 
-For GitHub.com, 
-
+For GitHub.com, I prefer AWS.
 
 
 ## Wheres the code?
