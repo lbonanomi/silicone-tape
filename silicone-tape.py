@@ -1,4 +1,4 @@
-#!/opt/bb/bin/python
+#!/bin/python
 
 # Webhook
 from flask import Flask, request
@@ -24,11 +24,11 @@ import pwd
 #
 #
 
-base_url = 'https://bbgithub.dev.bloomberg.com/api/v3'
+base_url = 'https://MY.GHE.URL/api/v3'
 
-repo_email = 'lbonanomi2@bloomberg.net'
+repo_email = 'sending@email_address.com'
 
-token_file = '/home/lbonanomi2/.ssh/.ghe_token'
+token_file = '/flat_file/containing/auto_token'
 
 
 def gitcat(url, plain_user):
@@ -67,9 +67,6 @@ def get_sweet_sha(repo_name):
 
 
 def rebase(sha, repo_name):
-
-        print "REBASING!!"
-
         url = base_url + '/repos/' + repo_name + '/git/refs/heads/master'
         payload = json.dumps({ "sha":sha, "force":True })
         requests.patch(url, auth=plain_user, data=payload, verify=False)
@@ -136,10 +133,7 @@ def verify_traffic():
         for rewind_hash in requests.get(url, auth=plain_user, verify=False).json():
                 hashes[rewind_hash['sha']] = rewind_hash['path']
 
-
         url = base_url + '/repos/' + data['repository']['full_name'] + '/contents?ref=' + 'master'
-        print "MASTER_URL: " + url
-
 
         for master_hash in requests.get(url, auth=plain_user, verify=False).json():
                 if master_hash['sha'] not in hashes:
