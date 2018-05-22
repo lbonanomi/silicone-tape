@@ -75,7 +75,7 @@ def rebase(sha, repo_name):
 def nag(pusher, mail_text):
         msg = MIMEText(mail_text)
 
-        msg['Subject'] = 'Your Git Push...'
+        msg['Subject'] = 'About Your GitHub Edit...'
         msg['From'] = repo_email
         msg['To'] = pusher
 
@@ -133,11 +133,30 @@ def verify_traffic():
         for rewind_hash in requests.get(url, auth=plain_user, verify=False).json():
                 hashes[rewind_hash['sha']] = rewind_hash['path']
 
-
         url = base_url + '/repos/' + data['repository']['full_name'] + '/contents?ref=' + 'master'
+
         for master_hash in requests.get(url, auth=plain_user, verify=False).json():
                 if master_hash['sha'] not in hashes:
                         content_url = base_url + '/repos/' + data['repository']['full_name'] + '/contents/' + master_hash['path']
+
+                        try:
+                                data['commits'][0]['added']
+
+                                if len(data['commits'][0]['added']) > 0:
+                                        content_url = base_url + '/repos/' + data['repository']['full_name'] + '/contents/' + data['commits'][0]['added'][0]
+                                        changed_file = data['commits'][0]['added'][0]
+                        except IndexError:
+                                continue
+
+                        try:
+                                data['commits'][0]['modified']
+
+                                if len(data['commits'][0]['modified']) > 0:
+                                        content_url = base_url + '/repos/' + data['repository']['full_name'] + '/contents/' + data['commits'][0]['modified'][0]
+                                        changed_file = data['commits'][0]['modified'][0]
+                        except IndexError:
+                                continue
+
 
                         uniq_words = {}
 
@@ -151,7 +170,7 @@ def verify_traffic():
 
                                 if len(word) == 40:
                                         if token(word):
-                                                nag(data['pusher']['email'], "This push mentions an active application token and is being automatically rebased.")
+                                                nag(data['pusher']['email'], "Your edit of " + changed_file + " mentioned an active application token and has been automatically rebased back to the previous version.")
                                                 rebase(rewind_to, data['repository']['full_name'])
 
 
@@ -173,5 +192,4 @@ def verify_traffic():
 
 if __name__ == "__main__":
         app.run(host='0.0.0.0', port=8008)
-
 
