@@ -5,7 +5,7 @@
 
 ## Whats this?
 
-silicone-tape is a simple flask app for preventing embarassing "leaks" in pushes to GitHub.com and GitHub Enterprise, with an eye towards 
+silicone-tape is a simple flask app for preventing embarassing "leaks" in pushes to GitHub Enterprise, with an eye towards 
 preventing the author from looking silly. The author takes notes on and makes frequest pushes-to a GHE instance at work, and is resistant 
 to requiring pull requests for diary repos and note files.
 
@@ -26,10 +26,3 @@ silicone-tape currently checks pushed data for the following conditions:
 ## How would I run this?
 
 If you're using GitHub Enterprise, pop this up on any internal host that can be reached by a GHE webhook and send email. 
-
-For GitHub.com, I prefer AWS.
-
-
-## Wheres the code?
-
-Waiting on a cleanup before I go public.
