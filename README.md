@@ -6,8 +6,7 @@
 ## Whats this?
 
 silicone-tape is a simple flask app for preventing embarassing "leaks" in pushes to GitHub Enterprise, with an eye towards 
-preventing the author from looking silly. The author takes notes on and makes frequest pushes-to a GHE instance at work, and is resistant 
-to requiring pull requests for diary repos and note files.
+preventing the author from looking silly. The author takes notes on and makes frequent pushes-to a GHE instance at work, and is resistant to requiring pull requests for diary repos and note files.
 
 
 ## What "leaks" get checked?
