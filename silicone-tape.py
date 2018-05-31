@@ -10,6 +10,11 @@ import requests
 from requests.auth import HTTPBasicAuth
 import sys
 
+# Password hunt
+import re
+import string
+from subprocess import check_output
+
 # Nag emails
 import smtplib
 from email.mime.text import MIMEText
@@ -42,13 +47,15 @@ def gitcat(url, plain_user):
                 #
 
                 for punc in ("(", ")", "'", "/", ",", ":", "#", '"', '[', ']' '$', '{', '}', '='):
-                        clear = clear.replace(punc, ' ')
+                        clean = clear.replace(punc, ' ')
 
-                text = clear.split()
+                clean = clean.split()
+                clear = clear.split("\n")
 
-                return(text)
+                return clean, clear             # Return a tuple of cleaned-up data and mostly-raw data
+
         except Exception as e:
-                return()
+                return None, None
 
 
 def token(candidate):
@@ -84,8 +91,92 @@ def nag(pusher, mail_text):
         s.quit()
 
 
-def resolve(candidate):
+def crescentwrench(bad_word_array):
+        bad_keywords = []
+        bad_word_regexes = []
 
+        # Get all keywords from the badwords array into a list for quick-filter of input
+        #
+
+        for bad_word in bad_word_array:
+                bad_keywords.append(bad_word.keys()[0])
+
+        for bad_words in bad_word_array:
+                for phrase in bad_words:
+                        for this_bad_word in bad_words[phrase]:
+                                bad_word_regex = (phrase + "\s+.*" + this_bad_word).replace('$username', '\S*').replace('$password', '\S+').replace(' ', '\s+')
+                                bad_word_regexes.append(bad_word_regex)
+
+        return(bad_keywords, bad_word_regexes)
+
+
+def bowlder(source, bad_keywords, bad_word_regexes):
+        linenumber = 0
+        trouble_lines = {}
+
+        for lined in source:
+                linenumber = linenumber + 1
+
+                lined = lined.strip("\n")
+
+                for bad_keyword in bad_keywords:
+                        if bad_keyword in lined:                                                                                                                                                                                                                                                        # Fast-check for keywords
+                                for phrase in bad_word_regexes:                                                                                                                                                                                                                                 #
+                                        if re.search(phrase, lined):                                                                                                                                                                                                                            # Confirmed that there is a suspicious idiom here.
+                                                for bad_word in bad_word_array:                                                                                                                                                                                                                 # Foreach rule in rules array...
+                                                        if bad_word.keys()[0] == bad_keyword:                                                                                                                                                                                           # If the rule matches the keyword that triggered this line's analysis...
+                                                                for bad_word_pattern in bad_word[bad_keyword]:                                                                                                                                                                  # Extract every member of the rules set
+                                                                        bad_word_pattern_regex = bad_word_pattern.replace('$username', '(\S*)').replace('$password', '(\S+)').replace(' ', '\s+')       # Regenerate a regex to find just-one rule to test
+
+                                                                        if re.search(bad_word_pattern_regex, lined):
+                                                                                password_extract = re.search(bad_word_pattern_regex, lined)
+
+                                                                                # THIS IS INSANELY DANGEROUS. I AM WELL-AWARE.
+
+                                                                                try:
+                                                                                        acid = 'eval echo "' + password_extract.group(2) + '"'
+
+                                                                                        if len(check_output(acid, shell=True)) > 1:
+                                                                                                trouble_lines[linenumber] = "static-password-inline"
+                                                                                        else:
+                                                                                                # Was it set elsewhere?
+                                                                                                waddle = password_extract.group(2).replace('$', '') + "\s*="
+
+                                                                                                relinenumber = 0
+
+                                                                                                for relined in source:
+                                                                                                        relinenumber = relinenumber + 1
+
+                                                                                                        relined = relined.strip("\n")
+
+                                                                                                        if re.search(waddle, relined):
+                                                                                                                if not re.search('=\$(.*)', relined):   # Don't freak-out about VAR=$(command capture)
+                                                                                                                        trouble_lines[relinenumber] = "static-password-def"
+
+                                                                                except Exception:
+                                                                                        acid = 'eval echo "' + password_extract.group(1) + '"'
+
+                                                                                        if len(check_output(acid, shell=True)) > 1:
+                                                                                                trouble_lines[linenumber] = "static-password-inline"
+                                                                                        else:
+                                                                                                waddle = password_extract.group(1).replace('$', '') + "\s*="
+
+                                                                                                relinenumber = 0
+
+                                                                                                for relined in source:
+                                                                                                        relinenumber = relinenumber + 1
+
+                                                                                                        relined = relined.strip("\n")
+
+                                                                                                        if re.search(waddle, relined):
+                                                                                                                if not re.search('=\$(.*)', relined):
+                                                                                                                        trouble_lines[relinenumber] = "static-password-def"
+
+
+        return(trouble_lines)
+
+
+def resolve(candidate):
         if candidate == "localhost":
                 return(0)
 
@@ -123,6 +214,8 @@ plain_user = HTTPBasicAuth('', token_value)
 app = Flask(__name__)
 @app.route("/", methods=['POST'])
 def verify_traffic():
+
+
         data = request.get_json()
 
         hashes = {}
@@ -158,9 +251,25 @@ def verify_traffic():
                                 continue
 
 
+                        # Make a bad-words list:
+
+                        global bad_word_array
+
+                        bad_word_array = [ {'ldapsearch': [ '-w $password' ] }, {'curl': [ '--user $username:$password', '-u $username:$password' ] } ]
+
+                        (bad_keywords, bad_word_regexes) = crescentwrench(bad_word_array)
+
+                        clean_data, clear_data = gitcat(content_url, plain_user)
+
+                        password_problems = bowlder(clear_data, bad_keywords, bad_word_regexes)
+
+                        for erroring_line in password_problems:
+                                print "Line: " + str(erroring_line) + " " + password_problems[erroring_line] + "\n"
+                                nag(data['pusher']['email'], "Your edit of " + changed_file + " mentions a password-like string  at line " + str(erroring_line) + ". PLEASE look at this, I am a very stupid but very paranoid bot")
+
                         uniq_words = {}
 
-                        for word in gitcat(content_url, plain_user):
+                        for word in clean_data:
                                 uniq_words[word] = word
 
 
