@@ -223,6 +223,7 @@ def verify_traffic():
         rewind_to = get_sweet_sha(data['repository']['full_name'])
 
         url = base_url + '/repos/' + data['repository']['full_name'] + '/contents?ref=' + rewind_to
+
         for rewind_hash in requests.get(url, auth=plain_user, verify=False).json():
                 hashes[rewind_hash['sha']] = rewind_hash['path']
 
@@ -264,8 +265,9 @@ def verify_traffic():
                         password_problems = bowlder(clear_data, bad_keywords, bad_word_regexes)
 
                         for erroring_line in password_problems:
-                                print "Line: " + str(erroring_line) + " " + password_problems[erroring_line] + "\n"
-                                nag(data['pusher']['email'], "Your edit of " + changed_file + " mentions a password-like string  at line " + str(erroring_line) + ". PLEASE look at this, I am a very stupid but very paranoid bot")
+                                nag_url = data['repository']['html_url'] + '/blob/master/' + master_hash['path'] + '#L' + str(erroring_line)
+
+                                nag(data['pusher']['email'], "Your edit of " + changed_file + " mentions a password-like string  at line " + str(erroring_line) + ". PLEASE look at " + nag_url + "\n\n, I am a very stupid but very eager robot")
 
                         uniq_words = {}
 
