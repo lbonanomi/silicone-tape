@@ -17,11 +17,11 @@ silicone-tape currently checks pushed data for the following conditions:
 | Problem        | Action           | Likely More-Useful On  |
 | ------------- |:-------------:| -----:|
 | GitHub/GHE auth token raw in push | ***Recursively-rebase entire repo until no active tokens are found*** and then send user who pushed a chiding email | GitHub.com and GHE |
-| Suspected plaintext password | Mail user who pushed to look-hard | GitHub.com and GHE |
+| Suspected plaintext password | Mail user who pushed to look and have a good think about this content. | GitHub.com and GHE |
 | Explicit username reference | Send user who pushed a chiding email | GitHub.com |
 | Explicit internal hostname reference| Send user who pushed a chiding email | GitHub.com |
 
-##### Additional conditions will be added as I have more awkward meetings with the security team.
+##### Additional conditions may be added depending on awkward talks with the security team or further razzing from co-workers.
 
 
 ## How would I run this?
