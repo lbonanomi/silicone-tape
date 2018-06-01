@@ -26,4 +26,4 @@ silicone-tape currently checks pushed data for the following conditions:
 
 ## How would I run this?
 
-If you're using GitHub Enterprise, pop this up on any internal host that can be reached by a GHE webhook and can send email. 
+If you're using GitHub Enterprise, pop this up on any internal host that can be reached by a GHE webhook and can send email. This should work-out okay for GitHub.com too, but explicit usernames and located through system lookups and hostsnames are identified by DNS queries, so mileage is limited.
