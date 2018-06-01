@@ -24,6 +24,16 @@ silicone-tape currently checks pushed data for the following conditions:
 ##### Additional conditions may be added depending on awkward talks with the security team or further razzing from co-workers.
 
 
+## How does silicone-tape find passwords?
+
+Naïvely. Currently a few heuristic rules are stored in the script consisting of commands and arguments that indicate a password (i.e. ```curl -u```). Rules are parsed into keywords (likely a command name) and command/argument pairs that more-strongly suggest a password on the commandline. Content is scraped from GitHub, rule regexes are applied, and candidate password data is extracted. To reduce spurious alerts, ***candidate password data is fed into a shell eval*** and the result is considered for string length. ***This can be very dangerous***, but the use case for this script is personal/small-team consumption. 
+
+
+## What doesn't work
+
+The password finding functionality will probably choke trying to parse a line with a BASH subshell.
+
+
 ## How would I run this?
 
 If you're using GitHub Enterprise, pop this up on any internal host that can be reached by a GHE webhook and can send email. This should work-out okay for GitHub.com too, but explicit usernames and located through system lookups and hostsnames are identified by DNS queries, so mileage is limited.
