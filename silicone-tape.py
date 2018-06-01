@@ -104,7 +104,10 @@ def crescentwrench(bad_word_array):
         for bad_words in bad_word_array:
                 for phrase in bad_words:
                         for this_bad_word in bad_words[phrase]:
-                                bad_word_regex = (phrase + "\s+.*" + this_bad_word).replace('$username', '\S*').replace('$password', '\S+').replace(' ', '\s+')
+
+                                # EXPERIMENTAL NON-GREEDY MATCHES
+                                bad_word_regex = (phrase + "\s+.*?" + this_bad_word).replace('$username', '\S*').replace('$password', '\S+').replace(' ', '\s+')
+
                                 bad_word_regexes.append(bad_word_regex)
 
         return(bad_keywords, bad_word_regexes)
@@ -134,44 +137,47 @@ def bowlder(source, bad_keywords, bad_word_regexes):
                                                                                 # THIS IS INSANELY DANGEROUS. I AM WELL-AWARE.
 
                                                                                 try:
-                                                                                        acid = 'eval echo "' + password_extract.group(2) + '"'
+                                                                                        try:
+                                                                                                grouping = password_extract.group(2)
+                                                                                        except IndexError:
+                                                                                                grouping = password_extract.group(1)
 
-                                                                                        if len(check_output(acid, shell=True)) > 1:
-                                                                                                trouble_lines[linenumber] = "static-password-inline"
-                                                                                        else:
-                                                                                                # Was it set elsewhere?
-                                                                                                waddle = password_extract.group(2).replace('$', '') + "\s*="
+                                                                                        acid = 'eval echo "' + str(grouping) + '"'
 
-                                                                                                relinenumber = 0
+                                                                                        if len(grouping) > 0:
 
-                                                                                                for relined in source:
-                                                                                                        relinenumber = relinenumber + 1
+                                                                                                try:
+                                                                                                        acidtest = check_output(acid, shell=True)
 
-                                                                                                        relined = relined.strip("\n")
+                                                                                                        if len(acidtest) > 1:
+                                                                                                                if len(grouping) > 0:                                                                           # WHY ARE YOU TESTING FOR THIS?
+                                                                                                                        trouble_lines[linenumber] = "static-password-inline"
+                                                                                                        else:
+                                                                                                                # Was it set elsewhere?
+                                                                                                                waddle = grouping.replace('$', '') + "\s*="
 
-                                                                                                        if re.search(waddle, relined):
-                                                                                                                if not re.search('=\$(.*)', relined):   # Don't freak-out about VAR=$(command capture)
-                                                                                                                        trouble_lines[relinenumber] = "static-password-def"
+                                                                                                                relinenumber = 0
 
-                                                                                except Exception:
-                                                                                        acid = 'eval echo "' + password_extract.group(1) + '"'
+                                                                                                                for relined in source:
+                                                                                                                        relinenumber = relinenumber + 1
 
-                                                                                        if len(check_output(acid, shell=True)) > 1:
-                                                                                                trouble_lines[linenumber] = "static-password-inline"
-                                                                                        else:
-                                                                                                waddle = password_extract.group(1).replace('$', '') + "\s*="
+                                                                                                                        relined = relined.strip("\n")
 
-                                                                                                relinenumber = 0
+                                                                                                                        if re.search(waddle, relined):
+                                                                                                                                if not re.search('=\$(.*)', relined):   # Don't freak-out about VAR=$(command capture)
+                                                                                                                                        trouble_lines[relinenumber] = "static-password-def"
 
-                                                                                                for relined in source:
-                                                                                                        relinenumber = relinenumber + 1
+                                                                                                # If the eval fails, escalate to a reviewer
+                                                                                                #
 
-                                                                                                        relined = relined.strip("\n")
+                                                                                                except Exception as acid_test_exception:
+                                                                                                        if str(acid_test_exception).find("returned non-zero exit status") != -1:
+                                                                                                                trouble_lines[linenumber] = "indigestible"
 
-                                                                                                        if re.search(waddle, relined):
-                                                                                                                if not re.search('=\$(.*)', relined):
-                                                                                                                        trouble_lines[relinenumber] = "static-password-def"
 
+
+                                                                                except Exception as e:
+                                                                                        trouble_lines[linenumber] = "indigestible"
 
         return(trouble_lines)
 
@@ -215,7 +221,6 @@ app = Flask(__name__)
 @app.route("/", methods=['POST'])
 def verify_traffic():
 
-
         data = request.get_json()
 
         hashes = {}
@@ -231,6 +236,9 @@ def verify_traffic():
 
         for master_hash in requests.get(url, auth=plain_user, verify=False).json():
                 if master_hash['sha'] not in hashes:
+
+                        mailbody = ""
+
                         content_url = base_url + '/repos/' + data['repository']['full_name'] + '/contents/' + master_hash['path']
 
                         try:
@@ -251,6 +259,9 @@ def verify_traffic():
                         except IndexError:
                                 continue
 
+                        ##################
+                        # MOVE THIS UP!! #
+                        ##################
 
                         # Make a bad-words list:
 
@@ -260,6 +271,7 @@ def verify_traffic():
 
                         (bad_keywords, bad_word_regexes) = crescentwrench(bad_word_array)
 
+
                         clean_data, clear_data = gitcat(content_url, plain_user)
 
                         password_problems = bowlder(clear_data, bad_keywords, bad_word_regexes)
@@ -267,7 +279,10 @@ def verify_traffic():
                         for erroring_line in password_problems:
                                 nag_url = data['repository']['html_url'] + '/blob/master/' + master_hash['path'] + '#L' + str(erroring_line)
 
-                                nag(data['pusher']['email'], "Your edit of " + changed_file + " mentions a password-like string  at line " + str(erroring_line) + ". PLEASE look at " + nag_url + "\n\n, I am a very stupid but very eager robot")
+                                if password_problems[erroring_line] == 'indigestible':
+                                        mailbody = mailbody + "Your edit of " + changed_file + " mentions a password-like string at line " + str(erroring_line) + " that I can't parse.  " + nag_url + "\n\n"
+                                else:
+                                        mailbody = mailbody + "Your edit of " + changed_file + " mentions a password-like string at line " + str(erroring_line) + " " + nag_url + ".\n\n"
 
                         uniq_words = {}
 
@@ -284,23 +299,26 @@ def verify_traffic():
                                                 nag(data['pusher']['email'], "Your edit of " + changed_file + " mentioned an active application token and has been automatically rebased back to the previous version.")
                                                 rebase(rewind_to, data['repository']['full_name'])
 
-
+                                                
                                 # Internal-hostname hunt
                                 #
 
                                 if len(word) > 3:
                                         if resolve(word):
-                                                nag(data['pusher']['email'], "This push mentions internal hostname \"" + word + "\".")
-
+                                                mailbody = mailbody + "Your edit of " + changed_file + " mentions internal hostname \"" + word + "\"\n"
 
                                 # Named-user hunt
                                 #
 
                                 if finger(word):
-                                        nag(data['pusher']['email'], "This push mentions username \"" + word + "\".")
+                                        mailbody = mailbody + "Your edit of " + changed_file + " mentions username \"" + word + "\"\n"
+
+                        print "\n\n"
+                        print mailbody
+
+                        nag(data['pusher']['email'], mailbody)
 
         return("")
 
 if __name__ == "__main__":
         app.run(host='0.0.0.0', port=8008)
-
