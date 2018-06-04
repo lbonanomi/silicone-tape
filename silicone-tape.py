@@ -311,8 +311,10 @@ def verify_traffic():
                                 # Auth-token hunt:
                                 #
 
-                                if len(word) == 40:
-                                        if token(word):
+                                clean_word = word.translate(None, string.punctuation)   # Ugly edge case. Please rethink how this is handled in a larger-sense.
+                                
+                                if len(clean_word) == 40:
+                                        if token(clean_word):
                                                 nag(data['pusher']['email'], "Your edit of " + changed_file + " mentioned an active application token and has been automatically rebased back to the previous version.")
                                                 rebase(rewind_to, data['repository']['full_name'])
 
