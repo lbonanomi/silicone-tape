@@ -41,7 +41,8 @@ def gitcat(url, plain_user):
                 ghe_request = requests.get(url, auth=plain_user, verify=False)
                 resp = json.loads(ghe_request.text)
 
-                clear = base64.b64decode(resp['content']).lower()
+                #clear = base64.b64decode(resp['content']).lower()
+                clear = base64.b64decode(resp['content'])
 
                 # Do this instead of stripping punctuation outright to preserve domain names and dotted-quads
                 #
@@ -95,18 +96,24 @@ def crescentwrench(bad_word_array):
         bad_keywords = []
         bad_word_regexes = []
 
-        # Get all keywords from the badwords array into a list for quick-filter of input
+        # Get all top-level dictionary keys from input array into a list to use as a quick-filter of input
         #
 
         for bad_word in bad_word_array:
                 bad_keywords.append(bad_word.keys()[0])
 
+
         for bad_words in bad_word_array:
                 for phrase in bad_words:
                         for this_bad_word in bad_words[phrase]:
 
-                                # EXPERIMENTAL NON-GREEDY MATCHES
-                                bad_word_regex = (phrase + "\s+.*?" + this_bad_word).replace('$username', '\S*').replace('$password', '\S+').replace(' ', '\s+')
+                                if '(' in this_bad_word:
+                                        # Lets call this a function method and not massage it
+                                        #bad_word_regex = (phrase + "\s*" + this_bad_word + "\s*" ).replace('$username', '\S*').replace('$password', '\S+').replace(' ', '\s+')
+                                        bad_word_regex = (phrase + "\s*" + this_bad_word ).replace('$username', '\S*').replace('$password', '\S+').replace(' ', '\s+')
+
+                                else:
+                                        bad_word_regex  = (phrase + "\s+.*?" + this_bad_word).replace('$username', '\S*').replace('$password', '\S+').replace(' ', '\s+')
 
                                 bad_word_regexes.append(bad_word_regex)
 
@@ -123,25 +130,30 @@ def bowlder(source, bad_keywords, bad_word_regexes):
                 lined = lined.strip("\n")
 
                 for bad_keyword in bad_keywords:
-                        if bad_keyword in lined:                                                                                                                                                                                                                                                        # Fast-check for keywords
-                                for phrase in bad_word_regexes:                                                                                                                                                                                                                                 #
-                                        if re.search(phrase, lined):                                                                                                                                                                                                                            # Confirmed that there is a suspicious idiom here.
-                                                for bad_word in bad_word_array:                                                                                                                                                                                                                 # Foreach rule in rules array...
-                                                        if bad_word.keys()[0] == bad_keyword:                                                                                                                                                                                           # If the rule matches the keyword that triggered this line's analysis...
-                                                                for bad_word_pattern in bad_word[bad_keyword]:                                                                                                                                                                  # Extract every member of the rules set
+                        if bad_keyword in lined:                                                        																								# Fast-check for keywords
+                                for phrase in bad_word_regexes:                                                        																					#
+                                        if re.search(phrase, lined):                                                        																			# Confirmed that there is a suspicious idiom here.
+                                                for bad_word in bad_word_array:                                                        																	# Foreach rule in rules array...
+                                                        if bad_word.keys()[0] == bad_keyword:                                                        													# If the rule matches the keyword that triggered this line's analysis...
+                                                                for bad_word_pattern in bad_word[bad_keyword]:                                                        									# Extract every member of the rules set
                                                                         bad_word_pattern_regex = bad_word_pattern.replace('$username', '(\S*)').replace('$password', '(\S+)').replace(' ', '\s+')       # Regenerate a regex to find just-one rule to test
 
                                                                         if re.search(bad_word_pattern_regex, lined):
+
+                                                                                buffer_array = []
                                                                                 password_extract = re.search(bad_word_pattern_regex, lined)
 
-                                                                                # THIS IS INSANELY DANGEROUS. I AM WELL-AWARE.
+                                                                                for num in range(1,11):                                                        											# I'm not crazy about this, but regex gags trying to handle functions.
+                                                                                        try:                                                        													#
+                                                                                                value = password_extract.group(num).replace('(', '').replace(')', '')           
+
+                                                                                                buffer_array.append(value)
+                                                                                        except IndexError:
+                                                                                                continue
+
+                                                                                grouping = buffer_array.pop()
 
                                                                                 try:
-                                                                                        try:
-                                                                                                grouping = password_extract.group(2)
-                                                                                        except IndexError:
-                                                                                                grouping = password_extract.group(1)
-
                                                                                         acid = 'eval echo "' + str(grouping) + '"'
 
                                                                                         if len(grouping) > 0:
@@ -150,10 +162,9 @@ def bowlder(source, bad_keywords, bad_word_regexes):
                                                                                                         acidtest = check_output(acid, shell=True)
 
                                                                                                         if len(acidtest) > 1:
-                                                                                                                if len(grouping) > 0:                                                                           # WHY ARE YOU TESTING FOR THIS?
-                                                                                                                        trouble_lines[linenumber] = "static-password-inline"
+                                                                                                                trouble_lines[linenumber] = "static-password-inline"
                                                                                                         else:
-                                                                                                                # Was it set elsewhere?
+                                                                                                                # Is this a password defined elsewhere in-file?
                                                                                                                 waddle = grouping.replace('$', '') + "\s*="
 
                                                                                                                 relinenumber = 0
@@ -173,8 +184,6 @@ def bowlder(source, bad_keywords, bad_word_regexes):
                                                                                                 except Exception as acid_test_exception:
                                                                                                         if str(acid_test_exception).find("returned non-zero exit status") != -1:
                                                                                                                 trouble_lines[linenumber] = "indigestible"
-
-
 
                                                                                 except Exception as e:
                                                                                         trouble_lines[linenumber] = "indigestible"
@@ -234,6 +243,23 @@ def verify_traffic():
 
         url = base_url + '/repos/' + data['repository']['full_name'] + '/contents?ref=' + 'master'
 
+        ##########################
+        # Make a bad-words list: #
+        ##########################
+
+        global bad_word_array
+
+        bad_word_array = [
+                {'ldapsearch':		[ '-w $password' ] },
+                {'curl':			[ '--user $username:$password', '-u $username:$password' ] },
+                {'wget':			[ '--password', '--http-password', '--ftp-password', '--proxy-password' ] },
+                {'HTTPBasicAuth':	[ '(($username)\s*,\s*($password))' ] }
+        ]
+
+
+        (bad_keywords, bad_word_regexes) = crescentwrench(bad_word_array)
+
+
         for master_hash in requests.get(url, auth=plain_user, verify=False).json():
                 if master_hash['sha'] not in hashes:
 
@@ -259,22 +285,12 @@ def verify_traffic():
                         except IndexError:
                                 continue
 
-                        ##################
-                        # MOVE THIS UP!! #
-                        ##################
-
-                        # Make a bad-words list:
-
-                        global bad_word_array
-
-                        bad_word_array = [ {'ldapsearch': [ '-w $password' ] }, {'curl': [ '--user $username:$password', '-u $username:$password' ] } ]
-
-                        (bad_keywords, bad_word_regexes) = crescentwrench(bad_word_array)
-
 
                         clean_data, clear_data = gitcat(content_url, plain_user)
 
+
                         password_problems = bowlder(clear_data, bad_keywords, bad_word_regexes)
+
 
                         for erroring_line in password_problems:
                                 nag_url = data['repository']['html_url'] + '/blob/master/' + master_hash['path'] + '#L' + str(erroring_line)
@@ -282,7 +298,8 @@ def verify_traffic():
                                 if password_problems[erroring_line] == 'indigestible':
                                         mailbody = mailbody + "Your edit of " + changed_file + " mentions a password-like string at line " + str(erroring_line) + " that I can't parse.  " + nag_url + "\n\n"
                                 else:
-                                        mailbody = mailbody + "Your edit of " + changed_file + " mentions a password-like string at line " + str(erroring_line) + " " + nag_url + ".\n\n"
+                                        mailbody = mailbody + "Your edit of " + changed_file + " mentions a password-like string at line " + str(erroring_line) + " " + nag_url + ". ISSUE: " + password_problems[erroring_line] + " \n\n"
+
 
                         uniq_words = {}
 
@@ -299,13 +316,14 @@ def verify_traffic():
                                                 nag(data['pusher']['email'], "Your edit of " + changed_file + " mentioned an active application token and has been automatically rebased back to the previous version.")
                                                 rebase(rewind_to, data['repository']['full_name'])
 
-                                                
+
                                 # Internal-hostname hunt
                                 #
 
                                 if len(word) > 3:
                                         if resolve(word):
                                                 mailbody = mailbody + "Your edit of " + changed_file + " mentions internal hostname \"" + word + "\"\n"
+
 
                                 # Named-user hunt
                                 #
@@ -316,7 +334,8 @@ def verify_traffic():
                         print "\n\n"
                         print mailbody
 
-                        nag(data['pusher']['email'], mailbody)
+                        if (len(mailbody) > 1):
+                                nag(data['pusher']['email'], mailbody)
 
         return("")
 
