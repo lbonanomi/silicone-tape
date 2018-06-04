@@ -109,7 +109,6 @@ def crescentwrench(bad_word_array):
 
                                 if '(' in this_bad_word:
                                         # Lets call this a function method and not massage it
-                                        #bad_word_regex = (phrase + "\s*" + this_bad_word + "\s*" ).replace('$username', '\S*').replace('$password', '\S+').replace(' ', '\s+')
                                         bad_word_regex = (phrase + "\s*" + this_bad_word ).replace('$username', '\S*').replace('$password', '\S+').replace(' ', '\s+')
 
                                 else:
@@ -130,12 +129,12 @@ def bowlder(source, bad_keywords, bad_word_regexes):
                 lined = lined.strip("\n")
 
                 for bad_keyword in bad_keywords:
-                        if bad_keyword in lined:                                                        																								# Fast-check for keywords
-                                for phrase in bad_word_regexes:                                                        																					#
-                                        if re.search(phrase, lined):                                                        																			# Confirmed that there is a suspicious idiom here.
-                                                for bad_word in bad_word_array:                                                        																	# Foreach rule in rules array...
-                                                        if bad_word.keys()[0] == bad_keyword:                                                        													# If the rule matches the keyword that triggered this line's analysis...
-                                                                for bad_word_pattern in bad_word[bad_keyword]:                                                        									# Extract every member of the rules set
+                        if bad_keyword in lined:                                                                                                                                                        # Fast-check for keywords
+                                for phrase in bad_word_regexes:                                                        											#
+                                        if re.search(phrase, lined):                                                        										# Confirmed that there is a suspicious idiom here.
+                                                for bad_word in bad_word_array:                                                        									# Foreach rule in rules array...
+                                                        if bad_word.keys()[0] == bad_keyword:                                                        				        		# If the rule matches the keyword that triggered this line's analysis...
+                                                                for bad_word_pattern in bad_word[bad_keyword]:                                                        					# Extract every member of the rules set
                                                                         bad_word_pattern_regex = bad_word_pattern.replace('$username', '(\S*)').replace('$password', '(\S+)').replace(' ', '\s+')       # Regenerate a regex to find just-one rule to test
 
                                                                         if re.search(bad_word_pattern_regex, lined):
@@ -143,8 +142,8 @@ def bowlder(source, bad_keywords, bad_word_regexes):
                                                                                 buffer_array = []
                                                                                 password_extract = re.search(bad_word_pattern_regex, lined)
 
-                                                                                for num in range(1,11):                                                        											# I'm not crazy about this, but regex gags trying to handle functions.
-                                                                                        try:                                                        													#
+                                                                                for num in range(1,11):                                                        						# I'm not crazy about this, but regex gags trying to handle functions.
+                                                                                        try:                                                        						        #
                                                                                                 value = password_extract.group(num).replace('(', '').replace(')', '')           
 
                                                                                                 buffer_array.append(value)
@@ -251,8 +250,8 @@ def verify_traffic():
 
         bad_word_array = [
                 {'ldapsearch':		[ '-w $password' ] },
-                {'curl':			[ '--user $username:$password', '-u $username:$password' ] },
-                {'wget':			[ '--password', '--http-password', '--ftp-password', '--proxy-password' ] },
+                {'curl':		[ '--user $username:$password', '-u $username:$password' ] },
+                {'wget':		[ '--password', '--http-password', '--ftp-password', '--proxy-password' ] },
                 {'HTTPBasicAuth':	[ '(($username)\s*,\s*($password))' ] }
         ]
 
