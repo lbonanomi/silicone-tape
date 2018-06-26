@@ -26,14 +26,24 @@ from IPy import IP
 # Username finding
 import pwd
 
+# Hush Flask
+import logging
+
 #
 #
+
+# Turn-down volume on Flask apps
+#
+
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
+
 
 base_url = 'https://MY.GHE.URL/api/v3'
 
 repo_email = 'sending@email_address.com'
 
-token_file = '/flat_file/containing/auto_token'
+token_file = '/flat_file/containing/auth_token'
 
 
 def gitcat(url, plain_user):
